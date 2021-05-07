@@ -5,9 +5,12 @@ import sys
 import time
 import platform
 
+import ezFlashCLI
+
 
 def flash_ez_flash():
-    ez_flash = f'ezFlashCLI probe'
+    # ez_flash = f'ezFlashCLI probe'
+    ez_flash = ezFlashCLI()
     ret = subprocess.call(ez_flash, shell=True)
 
 
