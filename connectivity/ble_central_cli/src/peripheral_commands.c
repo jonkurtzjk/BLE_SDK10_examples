@@ -79,7 +79,7 @@ int update_flash_image(uint32_t addr)
 
 void handle_set_baud_rate(set_baud_cmd *evt)
 {
-        uart_printf("OK\r\n");
+        uart_print_line("OK");
         OS_DELAY(OS_TIME_TO_TICKS(100));
         evt->id = uart_drv_get_id();
         hw_uart_baudrate_set(evt->id, evt->baud);
@@ -108,10 +108,10 @@ void handle_img_block_update(write_img_block_cmd_t *evt)
 
                                         if(update_flash_image(addr) >= 0)
                                         {
-                                                uart_printf("OK\r\n");
+                                                uart_print_line("OK");
                                         }else
                                         {
-                                                uart_printf("ERROR: FLASH_WRITE\r\n");
+                                                uart_print_line("ERROR: FLASH_WRITE");
                                         }
                                 }else
                                 {
@@ -119,26 +119,26 @@ void handle_img_block_update(write_img_block_cmd_t *evt)
                                         {
                                                 memset(image_sector, 0xff, FLASH_SECTOR_SIZE);
                                                 sector_pointer = 0;
-                                                uart_printf("ERROR: BUFFER_FULL\r\n");
+                                                uart_print_line("ERROR: BUFFER_FULL");
                                         }
                                         else
                                         {
-                                                uart_printf("OK\r\n");
+                                                uart_print_line("OK");
                                         }
                                 }
                         }else
                         {
-                                uart_printf("ERROR: CRC\r\n");
+                                uart_print_line("ERROR: CRC");
                         }
 
                 }
                 else
                 {
-                        uart_printf("ERROR: Invalid elements\r\n");
+                        uart_print_line("ERROR: Invalid elements");
                 }
         }else
         {
-                uart_printf("ERROR: Sector Pointer \r\n");
+                uart_print_line("ERROR: Sector Pointer ");
         }
 
 }
@@ -151,11 +151,11 @@ void handle_image_erase_cmd(void)
 
         if(ret >= 0)
         {
-                uart_printf("OK\r\n");
+                uart_print_line("OK");
                 img_size = 0;
         }else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 }
 nvms_t peripheral_cmd_init(void)
@@ -196,34 +196,34 @@ void peripheral_handle_suota_check(void)
 
         if(!peripheral_check_image_signature(&header))
         {
-                uart_printf("ERROR: No Valid Image\r\n");
+                uart_print_line("ERROR: No Valid Image");
                 return;
         }
 
 
 
-        uart_printf("OK\r\n");
+        uart_print_line("OK");
 
 
-        uart_printf("FW Image size: %u bytes\r\n", img_size);
+        uart_print_line("FW Image size: %u bytes", img_size);
 
         /* Dump image info */
         rawtime = header.timestamp;
         timeinfo = gmtime(&rawtime);
 
-        uart_printf("FW Image information:\r\n");
-        uart_printf("\tCode Size: %d bytes\r\n", header.FIELD(code_size, size));
-        uart_printf("\tVersion: %.*s\r\n", sizeof(header.FIELD(version, version_string)),
+        uart_print_line("FW Image information:");
+        uart_print_line("\tCode Size: %d bytes", header.FIELD(code_size, size));
+        uart_print_line("\tVersion: %.*s", sizeof(header.FIELD(version, version_string)),
                                                         header.FIELD(version, version_string));
         if (timeinfo) {
-                uart_printf("\tTimestamp: %04d-%02d-%02d %02d:%02d:%02d UTC\r\n",
+                uart_print_line("\tTimestamp: %04d-%02d-%02d %02d:%02d:%02d UTC",
                                 timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
                                 timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
         } else {
-                uart_printf("\tTimestamp: INVALID TIMESTAMP\r\n");
+                uart_print_line("\tTimestamp: INVALID TIMESTAMP");
         }
-        uart_printf("\tCRC: 0x%08x\r\n", (unsigned int)header.crc);
-        uart_printf("END IMAGE\r\n");
+        uart_print_line("\tCRC: 0x%08x", (unsigned int)header.crc);
+        uart_print_line("END IMAGE");
 }
 
 size_t peripheral_get_image_size(void)

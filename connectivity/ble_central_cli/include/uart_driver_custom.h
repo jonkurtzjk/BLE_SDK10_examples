@@ -29,6 +29,7 @@ void                    uart_driver_custom_init(HW_UART_ID uart, uint32_t baud_r
 uart_drv_cust_error_t   uart_drv_custom_get_data(uint8_t *rcv, uint16_t len);
 
 void                    uart_printf(const char *format, ...);
+void                    uart_print_line(const char *format, ...);
 
 HW_UART_ID              uart_drv_get_id(void);
 

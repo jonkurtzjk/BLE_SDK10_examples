@@ -28,6 +28,7 @@
 #include "suota.h"
 #include "suota_client.h"
 #include "ble_l2cap.h"
+#include "ble_central_config.h"
 
 
 #define L2CAP_CREDITS           5
@@ -109,31 +110,6 @@ __RETAINED static nvms_t nvms;
 
 __RETAINED static app_state_t app_state;
 
-#ifdef BD_CUSTOM_CENTRAL
-/* return buffer in formatted hexdump  ASCII */
-/* print buffer in formatted hexdump and ASCII */
-
-static void format_value(uint16_t length, const uint8_t *value)
-{
-        static char buf1[49]; // buffer for hexdump (16 * 3 chars + \0)
-
-
-        while (length) {
-                int i;
-
-                memset(buf1, 0, sizeof(buf1));
-
-                for (i = 0; i < 16 && length > 0; i++, length--, value++) {
-                        sprintf(&buf1[i * 3], "%02x ", (int) *value);
-
-
-                }
-
-                uart_printf("%-49s\r\n", buf1);
-        }
-}
-#endif
-
 
 static void send_patch_data(void)
 {
@@ -148,8 +124,8 @@ static void send_patch_data(void)
                 /* We should have *exactly* the same offset as total_size */
                 OS_ASSERT(update_info.offset == image_size);
 
-                uart_printf("EVT_SUOTA_TRANSFER_COMPLETE\r\n");
-                uart_printf("\ttransferred %u bytes in %lu.%03lu seconds (%lu bytes/sec)\r\n", image_size, time / 1000, time % 1000, speed);
+                uart_print_line("EVT_SUOTA_TRANSFER_COMPLETE");
+                uart_print_line("\ttransferred %u bytes in %lu.%03lu seconds (%lu bytes/sec)", image_size, time / 1000, time % 1000, speed);
 
                 suota_client_send_end_cmd(peer_info.suota_client);
 
@@ -193,7 +169,7 @@ static void send_patch_data(void)
                 }
         }
 
-        uart_printf("EVT_SUOTA_SENT: %d bytes\r\n", update_info.offset);
+        uart_print_line("EVT_SUOTA_SENT: %d bytes", update_info.offset);
 }
 
 static void send_patch_data_gatt(void)
@@ -231,7 +207,7 @@ static void pending_clear_and_check(pending_action_t action)
 
         /* If all flags are cleared, we're ready to start SUOTA */
         if (!peer_info.pending_init) {
-                uart_printf("EVT_SUOTA_READY\r\n");
+                uart_print_line("EVT_SUOTA_READY");
         }
 }
 
@@ -243,7 +219,7 @@ void suota_set_event_state_completed_cb(ble_client_t *client, suota_client_event
 
 static void suota_status_notif_cb(ble_client_t *client, uint8_t status)
 {
-        uart_printf("EVT_SUOTA_NOTIF: status: %02x\r\n", status);
+        uart_print_line("EVT_SUOTA_NOTIF: status: %02x", status);
 
         if (update_info.w4_write_ack) {
                 update_info.w4_write_ack = false;
@@ -251,7 +227,7 @@ static void suota_status_notif_cb(ble_client_t *client, uint8_t status)
                 if (status == SUOTA_CMP_OK) {
                         send_patch_data_gatt();
                 } else {
-                        uart_printf("ERROR: SUOTA remote did not ACK data block\r\n");
+                        uart_print_line("ERROR: SUOTA remote did not ACK data block");
                 }
         }
 
@@ -259,7 +235,7 @@ static void suota_status_notif_cb(ble_client_t *client, uint8_t status)
                 update_info.w4_transfer_status = false;
 
                 if (status == SUOTA_CMP_OK) {
-                        uart_printf("EVT_SUOTA_REBOOT_REMOTE\r\n");
+                        uart_print_line("EVT_SUOTA_REBOOT_REMOTE");
                         suota_client_send_reboot_cmd(peer_info.suota_client);
                 }
         }
@@ -270,9 +246,9 @@ static void suota_read_l2cap_psm_completed_cb(ble_client_t *client, att_error_t 
         peer_info.psm = psm;
 
         if (status != ATT_ERROR_OK) {
-                uart_printf("\tERROR: L2CAP PSM failed to read (0x%02x)\r\n", status);
+                uart_print_line("\tERROR: L2CAP PSM failed to read (0x%02x)", status);
         } else {
-                uart_printf("EVT_SUOTA_L2CAP PSM: 0x%04x\r\n", psm);
+                uart_print_line("EVT_SUOTA_L2CAP PSM: 0x%04x", psm);
         }
 
         pending_clear_and_check(PENDING_ACTION_READ_L2CAP_PSM);
@@ -282,11 +258,11 @@ static void suota_read_l2cap_psm_completed_cb(ble_client_t *client, att_error_t 
 static void suota_get_suota_version_completed_cb(ble_client_t *client, att_error_t status, uint8_t suota_version)
 {
         if (status != ATT_ERROR_OK) {
-                printf("ERROR: failed to get SUOTA version (code=0x%02x)\r\n", status);
+                printf("ERROR: failed to get SUOTA version (code=0x%02x)", status);
                 return;
         }
 
-        uart_printf("EVT_SUOTA_VERSION: v%u\r\n", suota_version);
+        uart_print_line("EVT_SUOTA_VERSION: v%u", suota_version);
 
         /*
          * Query version specific characteristics
@@ -302,7 +278,7 @@ static void suota_get_suota_version_completed_cb(ble_client_t *client, att_error
 static void suota_get_patch_data_char_size_completed_cb(ble_client_t *client, att_error_t status, uint16_t patch_data_char_size)
 {
         if (status != ATT_ERROR_OK) {
-                uart_printf("ERROR: failed to get patch data characteristic size (code=0x%02x)\r\n", status);
+                uart_print_line("ERROR: failed to get patch data characteristic size (code=0x%02x)", status);
                 return;
         }
 
@@ -314,18 +290,18 @@ static void suota_get_patch_data_char_size_completed_cb(ble_client_t *client, at
 static void suota_set_mem_dev_completed_cb(ble_client_t *client, att_error_t status)
 {
         if (status != ATT_ERROR_OK) {
-                uart_printf("ERROR: failed to configure device (code=0x%02x)\r\n", status);
+                uart_print_line("ERROR: failed to configure device (code=0x%02x)", status);
                 return;
         }
 
         if (update_info.use_l2cap) {
-                uart_printf("SUOTA: update via L2CAP CoC...\r\n");
+                uart_print_line("SUOTA: update via L2CAP CoC...");
 
                 /* Connect L2CAP channel, this will trigger image transfer */
                 ble_l2cap_connect(peer_info.conn_idx, peer_info.psm, L2CAP_CREDITS,
                                                                                 &peer_info.scid);
         } else {
-                printf("SUOTA: update via GATT...\r\n");
+                printf("SUOTA: update via GATT...");
                 update_info.start_time = OS_GET_TICK_COUNT();
 
                 /* Write patch len, this will trigger image transfer */
@@ -338,14 +314,14 @@ static void suota_set_mem_dev_completed_cb(ble_client_t *client, att_error_t sta
 static void suota_send_end_cmd_completed_cb(ble_client_t *client, att_error_t status)
 {
         if (status != ATT_ERROR_OK) {
-                uart_printf("ERROR: SPOTAR_IMAGE_END failed on remote\r\n");
+                uart_print_line("ERROR: SPOTAR_IMAGE_END failed on remote");
         }
 }
 
 static void suota_set_patch_len_completed_cb(ble_client_t *client, att_error_t status)
 {
         if (status != ATT_ERROR_OK) {
-                uart_printf("ERROR: Failed to set new patch block length (code=0x%02x)\r\n", status);
+                uart_print_line("ERROR: Failed to set new patch block length (code=0x%02x)", status);
                 return;
         }
 
@@ -355,7 +331,7 @@ static void suota_set_patch_len_completed_cb(ble_client_t *client, att_error_t s
 static void suota_send_patch_data_completed_cb(ble_client_t *client, att_error_t status)
 {
         if (status != ATT_ERROR_OK) {
-                uart_printf("ERROR: Failed to send patch data\r\n");
+                uart_print_line("ERROR: Failed to send patch data");
                 return;
         }
 
@@ -383,19 +359,19 @@ static void dis_read_completed_cb(ble_client_t *dis_client, att_error_t status,
 {
         switch (capability) {
         case DIS_CLIENT_CAP_MANUFACTURER_NAME:
-                uart_printf("\tManufacturer: %.*s\r\n", length, value);
+                uart_print_line("\tManufacturer: %.*s", length, value);
                 pending_clear_and_check(PENDING_ACTION_READ_MANUFACTURER);
                 break;
         case DIS_CLIENT_CAP_MODEL_NUMBER:
-                uart_printf("\tModel: %.*s\r\n", length, value);
+                uart_print_line("\tModel: %.*s", length, value);
                 pending_clear_and_check(PENDING_ACTION_READ_MODEL);
                 break;
         case DIS_CLIENT_CAP_FIRMWARE_REVISION:
-                uart_printf("\tFirmware version: %.*s\r\n", length, value);
+                uart_print_line("\tFirmware version: %.*s", length, value);
                 pending_clear_and_check(PENDING_ACTION_READ_FW_VERSION);
                 break;
         case DIS_CLIENT_CAP_SOFTWARE_REVISION:
-                uart_printf("\tSoftware version: %.*s\r\n", length, value);
+                uart_print_line("\tSoftware version: %.*s", length, value);
                 pending_clear_and_check(PENDING_ACTION_READ_SW_VERSION);
                 break;
         default:
@@ -412,22 +388,22 @@ static void handle_suota_start(suota_start_cmd_t *cmd)
         image_size = peripheral_get_image_size();
         if(!image_size)
         {
-             uart_printf("ERROR: No valid image detected\r\n") ;
+             uart_print_line("ERROR: No valid image detected") ;
              return;
         }
         if (!peer_info.suota_client) {
-                uart_printf("\tERROR: peer does not support SUOTA or GATTBROWSE was never completed\r\n");
+                uart_print_line("\tERROR: peer does not support SUOTA or GATTBROWSE was never completed");
 
                 return;
         }
 
         if (app_state < APP_STATE_CONNECTED) {
-                printf("ERROR: not connected\r\n");
+                printf("ERROR: not connected");
                 return;
         }
-        uart_printf("OK\r\n");
+        uart_print_line("OK");
 
-        uart_printf("Updating...\r\n");
+        uart_print_line("Updating...");
 
         memset(&update_info, 0, sizeof(update_info));
         update_info.use_l2cap = peer_info.psm && !cmd->force_gatt_update;
@@ -442,7 +418,7 @@ static void handle_suota_start(suota_start_cmd_t *cmd)
 
 static void handle_evt_l2cap_connected(ble_evt_l2cap_connected_t *evt)
 {
-        uart_printf("SUOTA: L2CAP Connected\r\n");
+        uart_print_line("SUOTA: L2CAP Connected");
         update_info.start_time = OS_GET_TICK_COUNT();
 
         peer_info.l2cap_mtu = evt->mtu;
@@ -452,13 +428,13 @@ static void handle_evt_l2cap_connected(ble_evt_l2cap_connected_t *evt)
 
 static void handle_evt_l2cap_connection_failed(ble_evt_l2cap_connection_failed_t *evt)
 {
-        uart_printf("Data channel connection failed\r\n");
-        uart_printf("\tStatus: %d\r\n", evt->status);
+        uart_print_line("Data channel connection failed");
+        uart_print_line("\tStatus: %d", evt->status);
 }
 
 static void handle_evt_l2cap_disconnected(ble_evt_l2cap_disconnected_t *evt)
 {
-        uart_printf("Data channel disconnected (reason=0x%04x)\r\n", evt->reason);
+        uart_print_line("Data channel disconnected (reason=0x%04x)", evt->reason);
 
         if (app_state == APP_STATE_UPDATING) {
                 app_state = APP_STATE_CONNECTED;
@@ -556,7 +532,7 @@ static const char *format_properties(uint8_t properties)
 
 void handle_read_printout(ble_evt_gattc_read_completed_t *evt)
 {
-        uart_printf("EVT_GATT_READ: conn_idx:%04x handle:%04x offset:%04x\r\n", evt->conn_idx, evt->handle, evt->offset);
+        uart_print_line("EVT_GATT_READ: conn_idx:%04x handle:%04x offset:%04x", evt->conn_idx, evt->handle, evt->offset);
         uart_printf("\tValue:");
 
         uint8_t i;
@@ -565,18 +541,18 @@ void handle_read_printout(ble_evt_gattc_read_completed_t *evt)
                 uart_printf("%02x ", (int)evt->value[i]);
         }
 
-        uart_printf("\r\n");
+        uart_printf(UART_EOL);
 
 
 }
 static void handle_evt_gap_security_request(ble_evt_gap_security_request_t *evt)
 {
-        uart_printf("EVT_PAIR_REQUEST\r\n\tconn_idx: 0x%04x, bond: %d, mitm: %d\r\n", evt->conn_idx, evt->bond,evt->mitm );
+        uart_print_line("EVT_PAIR_REQUEST\tconn_idx: 0x%04x, bond: %d, mitm: %d", evt->conn_idx, evt->bond,evt->mitm );
         ble_gap_pair(evt->conn_idx, evt->bond);
 }
 void handle_evt_gap_pair_completed(ble_evt_gap_pair_completed_t *evt)
 {
-        uart_printf("EVT_GAP_PAIR_COMPLETE\r\n\tconn_idx: 0x%04x, bond: %d, mitm: %d, status: %d\r\n", evt->conn_idx,
+        uart_print_line("EVT_GAP_PAIR_COMPLETE\tconn_idx: 0x%04x, bond: %d, mitm: %d, status: %d", evt->conn_idx,
                 evt->bond, evt->mitm, evt->status);
 }
 void handle_evt_gattc_discover_char(ble_evt_gattc_discover_char_t *evt)
@@ -588,77 +564,77 @@ static void handle_evt_gattc_read_completed(ble_evt_gattc_read_completed_t *evt)
        switch(evt->status)
        {
        case ATT_ERROR_OK:
-               uart_printf("ATT_ERROR_OK\r\n");
+               uart_print_line("ATT_ERROR_OK");
                handle_read_printout(evt);
                break;
        case ATT_ERROR_INVALID_HANDLE:
-               uart_printf("ATT_ERROR_INVALID_HANDLE\r\n");
+               uart_print_line("ATT_ERROR_INVALID_HANDLE");
                break;
        case ATT_ERROR_READ_NOT_PERMITTED:
-               uart_printf("ATT_ERROR_READ_NOT_PERMITTED\r\n");
+               uart_print_line("ATT_ERROR_READ_NOT_PERMITTED");
                break;
        case ATT_ERROR_WRITE_NOT_PERMITTED:
-               uart_printf("ATT_ERROR_WRITE_NOT_PERMITTED\r\n");
+               uart_print_line("ATT_ERROR_WRITE_NOT_PERMITTED");
                break;
        case ATT_ERROR_INVALID_PDU:
-               uart_printf("ATT_ERROR_INVALID_PDU\r\n");
+               uart_print_line("ATT_ERROR_INVALID_PDU");
                break;
        case ATT_ERROR_INSUFFICIENT_AUTHENTICATION:
-               uart_printf("ATT_ERROR_INSUFFICIENT_AUTHENTICATION\r\n");
+               uart_print_line("ATT_ERROR_INSUFFICIENT_AUTHENTICATION");
                break;
        case ATT_ERROR_REQUEST_NOT_SUPPORTED:
-               uart_printf("ATT_ERROR_REQUEST_NOT_SUPPORTED\r\n");
+               uart_print_line("ATT_ERROR_REQUEST_NOT_SUPPORTED");
                break;
        case ATT_ERROR_INVALID_OFFSET:
-               uart_printf("ATT_ERROR_INVALID_OFFSET\r\n");
+               uart_print_line("ATT_ERROR_INVALID_OFFSET");
                break;
        case ATT_ERROR_INSUFFICIENT_AUTHORIZATION:
-               uart_printf("ATT_ERROR_INSUFFICIENT_AUTHORIZATION\r\n");
+               uart_print_line("ATT_ERROR_INSUFFICIENT_AUTHORIZATION");
                break;
        case ATT_ERROR_PREPARE_QUEUE_FULL:
-               uart_printf("ATT_ERROR_PREPARE_QUEUE_FULL\r\n");
+               uart_print_line("ATT_ERROR_PREPARE_QUEUE_FULL");
                break;
        case ATT_ERROR_ATTRIBUTE_NOT_FOUND:
-               uart_printf("ATT_ERROR_ATTRIBUTE_NOT_FOUND\r\n");
+               uart_print_line("ATT_ERROR_ATTRIBUTE_NOT_FOUND");
                break;
        case ATT_ERROR_ATTRIBUTE_NOT_LONG:
-               uart_printf("ATT_ERROR_ATTRIBUTE_NOT_LONG\r\n");
+               uart_print_line("ATT_ERROR_ATTRIBUTE_NOT_LONG");
                break;
        case ATT_ERROR_INSUFFICIENT_KEY_SIZE:
-               uart_printf("ATT_ERROR_INSUFFICIENT_KEY_SIZE\r\n");
+               uart_print_line("ATT_ERROR_INSUFFICIENT_KEY_SIZE");
                break;
        case ATT_ERROR_INVALID_VALUE_LENGTH:
-               uart_printf("ATT_ERROR_INVALID_VALUE_LENGTH\r\n");
+               uart_print_line("ATT_ERROR_INVALID_VALUE_LENGTH");
                break;
        case ATT_ERROR_UNLIKELY:
-               uart_printf("ATT_ERROR_UNLIKELY\r\n");
+               uart_print_line("ATT_ERROR_UNLIKELY");
                break;
        case ATT_ERROR_INSUFFICIENT_ENCRYPTION:
-               uart_printf("ATT_ERROR_INSUFFICIENT_ENCRYPTION\r\n");
+               uart_print_line("ATT_ERROR_INSUFFICIENT_ENCRYPTION");
                break;
        case ATT_ERROR_UNSUPPORTED_GROUP_TYPE:
-               uart_printf("ATT_ERROR_UNSUPPORTED_GROUP_TYPE\r\n");
+               uart_print_line("ATT_ERROR_UNSUPPORTED_GROUP_TYPE");
                break;
        case ATT_ERROR_INSUFFICIENT_RESOURCES:
-               uart_printf("ATT_ERROR_INSUFFICIENT_RESOURCES\r\n");
+               uart_print_line("ATT_ERROR_INSUFFICIENT_RESOURCES");
                break;
        case ATT_ERROR_APPLICATION_ERROR:
-               uart_printf("ATT_ERROR_APPLICATION_ERROR\r\n");
+               uart_print_line("ATT_ERROR_APPLICATION_ERROR");
                break;
        case ATT_ERROR_CCC_DESCRIPTOR_IMPROPERLY_CONFIGURED:
-               uart_printf("ATT_ERROR_CCC_DESCRIPTOR_IMPROPERLY_CONFIGURED\r\n");
+               uart_print_line("ATT_ERROR_CCC_DESCRIPTOR_IMPROPERLY_CONFIGURED");
                break;
        case ATT_ERROR_PROCEDURE_ALREADY_IN_PROGRESS:
-               uart_printf("ATT_ERROR_PROCEDURE_ALREADY_IN_PROGRESS\r\n");
+               uart_print_line("ATT_ERROR_PROCEDURE_ALREADY_IN_PROGRESS");
                break;
        default:
-               uart_printf("EVT_READ_ERROR\r\n");
+               uart_print_line("EVT_READ_ERROR");
                break;
        }
 }
 static void handle_evt_gattc_notification(ble_evt_gattc_notification_t *evt)
 {
-        uart_printf("EVT_NOTIF_RECEIVED: conn_idx=0x%04x handle=0x%04x ", evt->conn_idx, evt->handle);
+        uart_print_line("EVT_NOTIF_RECEIVED: conn_idx=0x%04x handle=0x%04x ", evt->conn_idx, evt->handle);
         uart_printf("Value:");
         uint8_t i;
         for(i = 0; i < evt->length ; i++)
@@ -666,13 +642,13 @@ static void handle_evt_gattc_notification(ble_evt_gattc_notification_t *evt)
                 uart_printf("%02x ", (int)evt->value[i]);
         }
 
-        uart_printf("\r\n");
+        uart_printf(UART_EOL);
 
 }
 
 static void handle_evt_gattc_indication(ble_evt_gattc_indication_t *evt)
 {
-        uart_printf("EVT_IND_RECEIVED: conn_idx=0x%04x handle=0x%04x ", evt->conn_idx, evt->handle);
+        uart_print_line("EVT_IND_RECEIVED: conn_idx=0x%04x handle=0x%04x ", evt->conn_idx, evt->handle);
         uart_printf("Value:");
         uint8_t i;
         for(i = 0; i < evt->length ; i++)
@@ -680,7 +656,7 @@ static void handle_evt_gattc_indication(ble_evt_gattc_indication_t *evt)
                 uart_printf("%02x ", (int)evt->value[i]);
         }
 
-        uart_printf("\r\n");
+        uart_printf(UART_EOL);
 
 }
 static void handle_evt_gattc_write_completed(ble_evt_gattc_write_completed_t *evt)
@@ -689,85 +665,85 @@ static void handle_evt_gattc_write_completed(ble_evt_gattc_write_completed_t *ev
         switch(evt->status)
         {
         case ATT_ERROR_OK:
-                uart_printf("ATT_ERROR_OK\r\n");
+                uart_print_line("ATT_ERROR_OK");
                 break;
         case ATT_ERROR_INVALID_HANDLE:
-                uart_printf("ATT_ERROR_INVALID_HANDLE\r\n");
+                uart_print_line("ATT_ERROR_INVALID_HANDLE");
                 break;
         case ATT_ERROR_READ_NOT_PERMITTED:
-                uart_printf("ATT_ERROR_READ_NOT_PERMITTED\r\n");
+                uart_print_line("ATT_ERROR_READ_NOT_PERMITTED");
                 break;
         case ATT_ERROR_WRITE_NOT_PERMITTED:
-                uart_printf("ATT_ERROR_WRITE_NOT_PERMITTED\r\n");
+                uart_print_line("ATT_ERROR_WRITE_NOT_PERMITTED");
                 break;
         case ATT_ERROR_INVALID_PDU:
-                uart_printf("ATT_ERROR_INVALID_PDU\r\n");
+                uart_print_line("ATT_ERROR_INVALID_PDU");
                 break;
         case ATT_ERROR_INSUFFICIENT_AUTHENTICATION:
-                uart_printf("ATT_ERROR_INSUFFICIENT_AUTHENTICATION\r\n");
+                uart_print_line("ATT_ERROR_INSUFFICIENT_AUTHENTICATION");
                 break;
         case ATT_ERROR_REQUEST_NOT_SUPPORTED:
-                uart_printf("ATT_ERROR_REQUEST_NOT_SUPPORTED\r\n");
+                uart_print_line("ATT_ERROR_REQUEST_NOT_SUPPORTED");
                 break;
         case ATT_ERROR_INVALID_OFFSET:
-                uart_printf("ATT_ERROR_INVALID_OFFSET\r\n");
+                uart_print_line("ATT_ERROR_INVALID_OFFSET");
                 break;
         case ATT_ERROR_INSUFFICIENT_AUTHORIZATION:
-                uart_printf("ATT_ERROR_INSUFFICIENT_AUTHORIZATION\r\n");
+                uart_print_line("ATT_ERROR_INSUFFICIENT_AUTHORIZATION");
                 break;
         case ATT_ERROR_PREPARE_QUEUE_FULL:
-                uart_printf("ATT_ERROR_PREPARE_QUEUE_FULL\r\n");
+                uart_print_line("ATT_ERROR_PREPARE_QUEUE_FULL");
                 break;
         case ATT_ERROR_ATTRIBUTE_NOT_FOUND:
-                uart_printf("ATT_ERROR_ATTRIBUTE_NOT_FOUND\r\n");
+                uart_print_line("ATT_ERROR_ATTRIBUTE_NOT_FOUND");
                 break;
         case ATT_ERROR_ATTRIBUTE_NOT_LONG:
-                uart_printf("ATT_ERROR_ATTRIBUTE_NOT_LONG\r\n");
+                uart_print_line("ATT_ERROR_ATTRIBUTE_NOT_LONG");
                 break;
         case ATT_ERROR_INSUFFICIENT_KEY_SIZE:
-                uart_printf("ATT_ERROR_INSUFFICIENT_KEY_SIZE\r\n");
+                uart_print_line("ATT_ERROR_INSUFFICIENT_KEY_SIZE");
                 break;
         case ATT_ERROR_INVALID_VALUE_LENGTH:
-                uart_printf("ATT_ERROR_INVALID_VALUE_LENGTH\r\n");
+                uart_print_line("ATT_ERROR_INVALID_VALUE_LENGTH");
                 break;
         case ATT_ERROR_UNLIKELY:
-                uart_printf("ATT_ERROR_UNLIKELY\r\n");
+                uart_print_line("ATT_ERROR_UNLIKELY");
                 break;
         case ATT_ERROR_INSUFFICIENT_ENCRYPTION:
-                uart_printf("ATT_ERROR_INSUFFICIENT_ENCRYPTION\r\n");
+                uart_print_line("ATT_ERROR_INSUFFICIENT_ENCRYPTION");
                 break;
         case ATT_ERROR_UNSUPPORTED_GROUP_TYPE:
-                uart_printf("ATT_ERROR_UNSUPPORTED_GROUP_TYPE\r\n");
+                uart_print_line("ATT_ERROR_UNSUPPORTED_GROUP_TYPE");
                 break;
         case ATT_ERROR_INSUFFICIENT_RESOURCES:
-                uart_printf("ATT_ERROR_INSUFFICIENT_RESOURCES\r\n");
+                uart_print_line("ATT_ERROR_INSUFFICIENT_RESOURCES");
                 break;
         case ATT_ERROR_APPLICATION_ERROR:
-                uart_printf("ATT_ERROR_APPLICATION_ERROR\r\n");
+                uart_print_line("ATT_ERROR_APPLICATION_ERROR");
                 break;
         case ATT_ERROR_CCC_DESCRIPTOR_IMPROPERLY_CONFIGURED:
-                uart_printf("ATT_ERROR_CCC_DESCRIPTOR_IMPROPERLY_CONFIGURED\r\n");
+                uart_print_line("ATT_ERROR_CCC_DESCRIPTOR_IMPROPERLY_CONFIGURED");
                 break;
         case ATT_ERROR_PROCEDURE_ALREADY_IN_PROGRESS:
-                uart_printf("ATT_ERROR_PROCEDURE_ALREADY_IN_PROGRESS\r\n");
+                uart_print_line("ATT_ERROR_PROCEDURE_ALREADY_IN_PROGRESS");
                 break;
         default:
-                uart_printf("WRITE_ERROR\r\n");
+                uart_print_line("WRITE_ERROR");
                 break;
 
         }
 }
 static void handle_evt_gap_update_param_completed(ble_evt_gap_conn_param_updated_t* evt)
 {
-        uart_printf("EVT_PARAMS_UPDATE_COMPLETE\r\n");
+        uart_print_line("EVT_PARAMS_UPDATE_COMPLETE");
 }
 static void handle_evt_gap_update_req(ble_evt_gap_conn_param_update_req_t * evt)
 {
-        uart_printf("EVT_PARAM_UPDATE_REQUEST: conn_idx=%d\r\n", evt->conn_idx);
-        uart_printf("\tInterval Min:  %d\r\n", evt->conn_params.interval_min);
-        uart_printf("\tInterval Max:  %d\r\n", evt->conn_params.interval_max);
-        uart_printf("\tSlave Latency:  %d\r\n", evt->conn_params.slave_latency);
-        uart_printf("\tSupervision TO:  %d\r\n", evt->conn_params.sup_timeout);
+        uart_print_line("EVT_PARAM_UPDATE_REQUEST: conn_idx=%d", evt->conn_idx);
+        uart_print_line("\tInterval Min:  %d", evt->conn_params.interval_min);
+        uart_print_line("\tInterval Max:  %d", evt->conn_params.interval_max);
+        uart_print_line("\tSlave Latency:  %d", evt->conn_params.slave_latency);
+        uart_print_line("\tSupervision TO:  %d", evt->conn_params.sup_timeout);
 
 
         ble_gap_conn_param_update_reply(evt->conn_idx, true);
@@ -775,7 +751,7 @@ static void handle_evt_gap_update_req(ble_evt_gap_conn_param_update_req_t * evt)
 }
 static void handle_evt_gattc_browse_completed(ble_evt_gattc_browse_completed_t *evt)
 {
-        uart_printf("EVT_BROWSE_COMPLETED\r\n");
+        uart_print_line("EVT_BROWSE_COMPLETED");
 
         if(!peer_info.suota_client)
         {
@@ -825,19 +801,19 @@ static void handle_evt_gattc_browse_completed(ble_evt_gattc_browse_completed_t *
                 suota_client_get_suota_version(peer_info.suota_client);
         }
 
-        uart_printf("EVT_READING_SUOTA_DATABASE_CHARS...\r\n");
+        uart_print_line("EVT_READING_SUOTA_DATABASE_CHARS...");
 }
 static void handle_evt_gattc_browse_svc(ble_evt_gattc_browse_svc_t *evt)
 {
         uint8_t prop = 0;
         int i;
 
-        uart_printf("EVT_SERVICE_FOUND: conn_idx=%04x start_h=%04x end_h=%04x\r\n", evt->conn_idx,
+        uart_print_line("EVT_SERVICE_FOUND: conn_idx=%04x start_h=%04x end_h=%04x", evt->conn_idx,
                                                                         evt->start_h, evt->end_h);
 
         //ble_gattc_discover_char(evt->conn_idx, evt->start_h, evt->end_h, NULL);
 
-        uart_printf("\t%04x serv %s\r\n", evt->start_h, format_uuid(&evt->uuid));
+        uart_print_line("\t%04x serv %s", evt->start_h, format_uuid(&evt->uuid));
 
         switch (evt->uuid.uuid16) {
                 case UUID_SUOTA:
@@ -874,19 +850,19 @@ static void handle_evt_gattc_browse_svc(ble_evt_gattc_browse_svc_t *evt)
 
                 switch (item->type) {
                 case GATTC_ITEM_TYPE_INCLUDE:
-                        uart_printf("\t%04x incl %s\r\n", item->handle, format_uuid(&item->uuid));
+                        uart_print_line("\t%04x incl %s", item->handle, format_uuid(&item->uuid));
                         break;
                 case GATTC_ITEM_TYPE_CHARACTERISTIC:
-                        uart_printf("\t%04x char %s prop=%02x (%s)\r\n", item->handle,
+                        uart_print_line("\t%04x char %s prop=%02x (%s)", item->handle,
                                                 format_uuid(&evt->uuid), item->c.properties,
                                                 format_properties(item->c.properties));
 
-                        uart_printf("\t%04x ---- %s\r\n", item->handle, format_uuid(&item->uuid));
+                        uart_print_line("\t%04x ---- %s", item->handle, format_uuid(&item->uuid));
                         // store properties, useful when handling descriptor later
                         prop = item->c.properties;
                         break;
                 case GATTC_ITEM_TYPE_DESCRIPTOR:
-                        uart_printf("\t%04x desc %s\r\n", item->handle, format_uuid(&item->uuid));
+                        uart_print_line("\t%04x desc %s", item->handle, format_uuid(&item->uuid));
                         uint16_t ccc = 0;
                         ble_uuid_create16(UUID_GATT_CLIENT_CHAR_CONFIGURATION, &uuid);
                         if (ble_uuid_equal(&uuid, &item->uuid) && (prop & GATT_PROP_NOTIFY)) {
@@ -905,7 +881,7 @@ static void handle_evt_gattc_browse_svc(ble_evt_gattc_browse_svc_t *evt)
 
                         break;
                 default:
-                        uart_printf("\t%04x ????\r\n", item->handle);
+                        uart_print_line("\t%04x ????", item->handle);
                         break;
                 }
         }
@@ -914,51 +890,51 @@ static void handle_evt_gattc_browse_svc(ble_evt_gattc_browse_svc_t *evt)
 
 static void handle_evt_gap_data_length_changed(ble_evt_gap_data_length_changed_t *evt)
 {
-        uart_printf("BLE_EVT_DATA_LEN_CHANGED: \tconn_idx:0x%04x rx_len:%04x tx_len:%04x\r\n",
+        uart_print_line("BLE_EVT_DATA_LEN_CHANGED: \tconn_idx:0x%04x rx_len:%04x tx_len:%04x",
                                         evt->conn_idx, evt->max_rx_length, evt->max_tx_length);
 }
 
 static void handle_evt_gap_peer_version(ble_evt_gap_peer_version_t *evt)
 {
-        uart_printf("BLE_EVT_GAP_PEER_VERSION: \tconn_idx:%04x lmp_version:%02x comp_id:%04x lmp_subversion:%04x\r\n",
+        uart_print_line("BLE_EVT_GAP_PEER_VERSION: \tconn_idx:%04x lmp_version:%02x comp_id:%04x lmp_subversion:%04x",
                                         evt->conn_idx, evt->lmp_version, evt->company_id, evt->lmp_subversion);
 }
 static void handle_evt_mtu_changed(ble_evt_gattc_mtu_changed_t *evt)
 {
-        uart_printf("BLE_EVT_MTU_CHANGED: \tconn_idx:%04x mtu_size:%04x\r\n", evt->conn_idx, evt->mtu);
+        uart_print_line("BLE_EVT_MTU_CHANGED: \tconn_idx:%04x mtu_size:%04x", evt->conn_idx, evt->mtu);
 }
 static void handle_evt_gap_passkey_notify(ble_evt_gap_passkey_notify_t * evt)
 {
-        uart_printf("BLE_EVT_GAP_PASSKEY_DISPLAY: conn_idx: %04x passkey: %u\r\n",
+        uart_print_line("BLE_EVT_GAP_PASSKEY_DISPLAY: conn_idx: %04x passkey: %u",
                                                                 evt->conn_idx, evt->passkey);
 }
 static void handle_evt_gap_passkey_request(ble_evt_gap_passkey_request_t *evt)
 {
-        uart_printf("BLE_EVT_GAP_PASSKEY_REQUEST: conn_idx: %04x\r\n", evt->conn_idx);
+        uart_print_line("BLE_EVT_GAP_PASSKEY_REQUEST: conn_idx: %04x", evt->conn_idx);
 }
 static void handle_evt_gap_numeric_request(ble_evt_gap_numeric_request_t *evt)
 {
-        uart_printf("BLE_EVT_GAP_NUMERIC_REQUEST: conn_idx: %04x passkey: %u\r\n",
+        uart_print_line("BLE_EVT_GAP_NUMERIC_REQUEST: conn_idx: %04x passkey: %u",
                                                                 evt->conn_idx, evt->num_key);
 }
 static void handle_evt_gap_sec_level_changed(ble_evt_gap_sec_level_changed_t *evt)
 {
-        uart_printf("BLE_EVT_GAP_SEC_LEVEL_CHANGED: conn_idx: %04x level:%d\r\n",
+        uart_print_line("BLE_EVT_GAP_SEC_LEVEL_CHANGED: conn_idx: %04x level:%d",
                                                                 evt->conn_idx,evt->level);
 }
 static void handle_evt_gap_addr_resolved(ble_evt_gap_address_resolved_t *evt)
 {
-        uart_printf("BLE_EVT_GAP_ADDR_RESOLVED: conn_idx: %04x addr: %s resolved_addr: %s\r\n",
+        uart_print_line("BLE_EVT_GAP_ADDR_RESOLVED: conn_idx: %04x addr: %s resolved_addr: %s",
                 evt->conn_idx, format_bd_address(&evt->address), format_bd_address(&evt->resolved_address));
 }
 static void handle_evt_gap_peer_features(ble_evt_gap_peer_features_t *evt)
 {
-        uart_printf("BLE_EVT_GAP_PEER_FEATURES: \tconn_idx:%04x features:%02x\r\n",
+        uart_print_line("BLE_EVT_GAP_PEER_FEATURES: \tconn_idx:%04x features:%02x",
                                                         evt->conn_idx, evt->le_features);
 }
 static void handle_evt_gap_disconnect_failed(ble_evt_gap_disconnect_failed_t *evt)
 {
-        uart_printf("ERROR: DISCONNECT FAILED\r\n");
+        uart_print_line("ERROR: DISCONNECT FAILED");
 }
 static void handle_evt_gap_disconnected(ble_evt_gap_disconnected_t *evt)
 {
@@ -976,13 +952,13 @@ static void handle_evt_gap_disconnected(ble_evt_gap_disconnected_t *evt)
 
         app_state = APP_STATE_IDLE;
 
-        uart_printf("EVT_DISCONNECTED - ADDR: %s, CONN_ID: %d REASON: %02x\r\n",
+        uart_print_line("EVT_DISCONNECTED - ADDR: %s, CONN_ID: %d REASON: %02x",
                                         format_bd_address(&evt->address), evt->conn_idx, evt->reason);
 }
 
 static void handle_evt_scan_completed(ble_evt_gap_scan_completed_t * evt)
 {
-        uart_printf("EVT_SCAN_COMPLETED: %02x\r\n", evt->status);
+        uart_print_line("EVT_SCAN_COMPLETED: %02x", evt->status);
 }
 static void handle_evt_gap_connected(ble_evt_gap_connected_t *evt)
 {
@@ -1000,17 +976,17 @@ static void handle_evt_gap_connected(ble_evt_gap_connected_t *evt)
         ble_gattc_exchange_mtu(evt->conn_idx);
 
         err = ble_gap_get_device_by_conn_idx(evt->conn_idx, &device);
-        uart_printf("EVT_CONNECTED\r\n");
+        uart_print_line("EVT_CONNECTED");
 
-        uart_printf("\tADDR: %s, ADDR_TYPE: %d CONN_ID: %d \r\n", format_bd_address(&evt->peer_address),
+        uart_print_line("\tADDR: %s, ADDR_TYPE: %d CONN_ID: %d ", format_bd_address(&evt->peer_address),
                                                                 evt->peer_address.addr_type, evt->conn_idx);
 
         if(err == BLE_STATUS_OK){
-                uart_printf("EVT_BONDED: %d MITM: %d SEC: %d\r\n",
+                uart_print_line("EVT_BONDED: %d MITM: %d SEC: %d",
                                                 device.bonded, device.mitm, device.secure);
         }else
         {
-                uart_printf("ERROR: GET DEVICE SECURITY %02x\r\n", err);
+                uart_print_line("ERROR: GET DEVICE SECURITY %02x", err);
         }
 
         if(device.bonded)
@@ -1030,7 +1006,7 @@ static void handle_evt_gap_connected(ble_evt_gap_connected_t *evt)
                         err =  ble_gap_set_sec_level(evt->conn_idx, level);
                 }
 
-                uart_printf("EVT_BLE_GAP_SET_SEC_LEVEL: level: %d err: %d\r\n", level, err);
+                uart_print_line("EVT_BLE_GAP_SET_SEC_LEVEL: level: %d err: %d", level, err);
         }
 
 
@@ -1046,7 +1022,7 @@ static void handle_evt_gap_connect_complete(ble_evt_gap_connection_completed_t *
                 return;
         }
 
-        uart_printf("EVT_CONNECT_FAILED: %02x\r\n", evt->status);
+        uart_print_line("EVT_CONNECT_FAILED: %02x", evt->status);
         app_state = APP_STATE_IDLE;
 }
 static void handle_evt_gap_adv_report(ble_evt_gap_adv_report_t *evt)
@@ -1061,7 +1037,7 @@ static void handle_evt_gap_adv_report(ble_evt_gap_adv_report_t *evt)
                 uart_printf("%02x ", (int)evt->data[i]);
         }
 
-        uart_printf("\r\n");
+        uart_printf(UART_EOL);
 }
 
 void ble_central_task(void *params)
@@ -1213,7 +1189,7 @@ void ble_central_task(void *params)
                                         handle_evt_l2cap_data_ind((ble_evt_l2cap_data_ind_t *) hdr);
                                         break;
                                 default:
-                                        uart_printf("default: %04x\r\n", hdr->evt_code);
+                                        uart_print_line("default: %04x", hdr->evt_code);
                                         ble_handle_event_default(hdr);
                                         break;
                                 }

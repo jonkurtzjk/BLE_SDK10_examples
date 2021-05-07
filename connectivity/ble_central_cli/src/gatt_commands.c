@@ -14,7 +14,6 @@
 #include "gatt_commands.h"
 #include "uart_driver_custom.h"
 
-uint8_t test_buff[20];
 void handle_gatt_read_cmd(gatt_read_cmd *evt)
 {
         ble_error_t ret;
@@ -24,11 +23,11 @@ void handle_gatt_read_cmd(gatt_read_cmd *evt)
 
         if(ret == BLE_STATUS_OK)
         {
-              uart_printf("OK\r\n");
+              uart_print_line("OK");
         }
         else
         {
-              uart_printf("ERROR\r\n");
+              uart_print_line("ERROR");
         }
 
 }
@@ -43,11 +42,11 @@ void handle_gatt_write_no_rsp_cmd(gatt_write_cmd *evt)
 
        if(ret == BLE_STATUS_OK)
        {
-              uart_printf("OK\r\n");
+              uart_print_line("OK");
        }
        else
        {
-              uart_printf("ERROR\r\n");
+              uart_print_line("ERROR");
        }
 
 }
@@ -61,11 +60,11 @@ void handle_gatt_write_cmd(gatt_write_cmd *evt)
 
        if(ret == BLE_STATUS_OK)
        {
-              uart_printf("OK\r\n");
+              uart_print_line("OK");
        }
        else
        {
-              uart_printf("ERROR\r\n");
+              uart_print_line("ERROR");
        }
 
 }
@@ -77,12 +76,12 @@ void handle_gatt_browse_cmd(gatt_browse_cmd *evt)
 
         if(ret == BLE_STATUS_OK)
         {
-                uart_printf("OK\r\n");
-                uart_printf("BROWSE STARTED\r\n");
+                uart_print_line("OK");
+                uart_print_line("BROWSE STARTED");
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
 }

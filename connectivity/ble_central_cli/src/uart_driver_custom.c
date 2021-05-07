@@ -5,6 +5,7 @@
 #include <uart_driver_custom.h>
 #include "hw_uart.h"
 #include "osal.h"
+#include "ble_central_config.h"
 
 #define UART_CUSTOM_DATABITS                            HW_UART_DATABITS_8
 #define UART_CUSTOM_STOPBITS                            HW_UART_STOPBITS_1
@@ -341,6 +342,28 @@ __RETAINED_CODE static void uart_set_baudrate(uint32_t baud_rate)
 
          OS_MUTEX_PUT(uart_write_mutex);
 
+
+ }
+
+ void uart_print_line(const char *format, ...)
+ {
+        OS_MUTEX_GET(uart_write_mutex, OS_MUTEX_FOREVER);
+
+        int written;
+        char print_buffer[PRINTF_SZ];
+        char new_line[EOL_SIZE] = UART_EOL;
+
+        va_list arg;
+        va_start(arg, format);
+
+        written = vsprintf(print_buffer, format, arg);
+        va_end(arg);
+
+        memcpy(&print_buffer[written], new_line, EOL_SIZE);
+        written += EOL_SIZE;
+        hw_uart_write_buffer(uart_drv_env.uart_id, print_buffer, (uint16_t)written);
+
+        OS_MUTEX_PUT(uart_write_mutex);
 
  }
 

@@ -31,7 +31,7 @@ def connect_config(com_port, filters):
         ble.write_chars(filters[common.ble_msgs.WRITE_CHARS_KEY])
 
     # Sleep for 5 seconds for proximity reporter, so the LED stays lit
-    # time.sleep(5.0)
+    time.sleep(5.0)
         
     ble.disconnect()
 

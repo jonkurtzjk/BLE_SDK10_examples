@@ -2,10 +2,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <osal.h>
 #include <resmgmt.h>
+#include "osal.h"
 #include "hw_gpio.h"
-#include "ad_uart.h"
 #include "uart_driver_custom.h"
 #include "common.h"
 #include "peripheral_commands.h"
@@ -16,12 +15,14 @@
 #include "msg_queues.h"
 #include "ad_nvms.h"
 #include "hw_cpm_da1469x.h"
+#include "hw_uart.h"
+#include "ble_central_config.h"
 
 #define UART_NOTIF_RX_CB        (1 << 10)
-#define RX_BUFFER_LEN           (1500)
+#define RX_BUFFER_LEN           (UART_RX_BUFFER_LEN)
 #define MAX_ARG_LEN             (MAX_ENCODED_b64)
-#define BAUD_RATE               (1000000)
-//#define BAUD_RATE               (500000)
+#define BAUD_RATE               (UART_BAUD_RATE)
+
 
 
 PRIVILEGED_DATA static OS_TASK command_parser_handle = NULL;
@@ -30,15 +31,14 @@ PRIVILEGED_DATA static OS_TASK ble_handle = NULL;
 
 char            uart_rx[RX_BUFFER_LEN];
 uint16_t        rx_len;
-char newline[2]  =  "\r\n";
 msg_queue at_cmd_queue;
 
 
 const gap_conn_params_t default_gap_cp = {
-                .interval_min = BLE_CONN_INTERVAL_FROM_MS(10),   // 50.00ms
-                .interval_max = BLE_CONN_INTERVAL_FROM_MS(12.5),   // 70.00ms
+                .interval_min = BLE_CONN_INTERVAL_FROM_MS(BLE_DEFAULT_MIN_INTERVAL_CP_MS),   // 50.00ms
+                .interval_max = BLE_CONN_INTERVAL_FROM_MS(BLE_DEFAULT_MAX_INTERVAL_CP_MS),   // 70.00ms
                 .slave_latency = 0,
-                .sup_timeout = BLE_SUPERVISION_TMO_FROM_MS(500), // 420ms
+                .sup_timeout = BLE_SUPERVISION_TMO_FROM_MS(BLE_DEFAULT_CONN_TO_MS), // 420ms
         };
 //#define AT_PARAM_LEN       (10)
 
@@ -229,7 +229,7 @@ void at_parse_set_baud(at_command_parse *at_cmd)
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR\r\n");
         }
 
         OS_FREE(cmd);
@@ -239,7 +239,7 @@ void at_parse_echo(at_command_parse *at_echo)
 
       if(at_echo->num_params == 1)
       {
-              uart_printf("OK\r\n");
+              uart_print_line("OK");
       }
 
 }
@@ -290,7 +290,7 @@ void at_parse_gatt_read(at_command_parse *at_cmd)
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
         OS_FREE(cmd);
 
@@ -375,13 +375,13 @@ static void at_parse_write_generic(at_command_parse *at_cmd, gatt_prop_t write_t
                      OS_TASK_NOTIFY(ble_handle, AT_CMD_AVAILABLE, OS_NOTIFY_SET_BITS);
              }
              else{
-                     uart_printf("ERROR\r\n");
+                     uart_print_line("ERROR");
              }
              OS_FREE(cmd);
        }
        else
        {
-               uart_printf("ERROR\r\n");
+               uart_print_line("ERROR");
        }
 }
 void at_parse_gatt_write_no_rsp(at_command_parse *at_cmd)
@@ -403,7 +403,7 @@ void at_parse_cancel_connect(at_command_parse *at_cancel_cmd)
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 }
 void at_parse_set_cp(at_command_parse *at_set_cp)
@@ -439,7 +439,7 @@ void at_parse_set_cp(at_command_parse *at_set_cp)
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
         OS_FREE(cp);
@@ -496,7 +496,7 @@ void at_parse_pk_entry(at_command_parse *at_cmd)
 
         }else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
         OS_FREE(cmd);
 
@@ -551,7 +551,7 @@ void at_parse_yes_no_entry(at_command_parse *at_cmd)
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
 
@@ -603,7 +603,7 @@ void at_parse_gap_pair(at_command_parse *at_cmd)
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
 
@@ -656,7 +656,7 @@ void at_parse_set_io_cap(at_command_parse *at_cmd)
                 OS_TASK_NOTIFY(ble_handle, AT_CMD_AVAILABLE, OS_NOTIFY_SET_BITS);
         }
         else{
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
         OS_FREE(cmd);
 
@@ -690,7 +690,7 @@ void at_parse_browse(at_command_parse *at_gatt_browse)
               OS_TASK_NOTIFY(ble_handle, AT_CMD_AVAILABLE, OS_NOTIFY_SET_BITS);
         }
         else{
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
         OS_FREE(browse_cmd);
@@ -771,7 +771,7 @@ void at_parse_disc(at_command_parse *at_gap_disc)
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
         OS_FREE(disc_cmd);
 
@@ -793,7 +793,7 @@ void at_parse_gap_connect(at_command_parse *at_gap_connect)
 
                if(colon_count != 5)
                {
-                       uart_printf("ERROR\r\n");
+                       uart_print_line("ERROR");
                        goto DONE;
                }
 
@@ -811,7 +811,7 @@ void at_parse_gap_connect(at_command_parse *at_gap_connect)
                     }
                     else
                     {
-                            uart_printf("ERROR\r\n");
+                            uart_print_line("ERROR");
                             goto DONE;
                     }
 
@@ -833,7 +833,7 @@ void at_parse_gap_connect(at_command_parse *at_gap_connect)
                        else
                        {
 
-                               uart_printf("ERROR\r\n");
+                               uart_print_line("ERROR");
                                goto DONE;
                        }
 
@@ -868,7 +868,7 @@ void at_parse_gap_connect(at_command_parse *at_gap_connect)
                      else
                      {
 
-                             uart_printf("ERROR\r\n");
+                             uart_print_line("ERROR");
                              goto DONE;
                      }
 
@@ -879,7 +879,7 @@ void at_parse_gap_connect(at_command_parse *at_gap_connect)
                      }
                      else
                      {
-                             uart_printf("ERROR\r\n");
+                             uart_print_line("ERROR");
                              goto DONE;
                      }
 
@@ -897,7 +897,7 @@ void at_parse_gap_connect(at_command_parse *at_gap_connect)
                }
                else
                {
-                       uart_printf("ERROR\r\n");
+                       uart_print_line("ERROR");
                        goto DONE;
                }
 
@@ -912,7 +912,7 @@ void at_parse_gap_connect(at_command_parse *at_gap_connect)
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
         DONE:;
@@ -927,7 +927,7 @@ static void at_parse_reset(at_command_parse *at_reset)
               hw_cpm_reboot_system();
       }else
       {
-              uart_printf("ERROR\r\n");
+              uart_print_line("ERROR");
       }
 }
 static void at_parse_gap_scan(at_command_parse *at_gap_scan)
@@ -966,7 +966,7 @@ static void at_parse_gap_scan(at_command_parse *at_gap_scan)
                         command_valid=true;
                 }
                 else{
-                        uart_printf("ERROR\r\n");
+                        uart_print_line("ERROR");
                 }
 
                 if(command_valid)
@@ -982,7 +982,7 @@ static void at_parse_gap_scan(at_command_parse *at_gap_scan)
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
         OS_FREE(scan_cmd);
@@ -1031,7 +1031,7 @@ static void at_parse_imgblock(at_command_parse *at_cmd)
                 OS_TASK_NOTIFY(ble_handle, AT_CMD_AVAILABLE, OS_NOTIFY_SET_BITS);
         }else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
         OS_FREE(cmd);
@@ -1048,7 +1048,7 @@ static void at_parse_img_erase(at_command_parse *at_cmd)
                 OS_TASK_NOTIFY(ble_handle, AT_CMD_AVAILABLE, OS_NOTIFY_SET_BITS);
         }else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 }
 
@@ -1062,7 +1062,7 @@ static void at_parse_img_check(at_command_parse *at_cmd)
                 OS_TASK_NOTIFY(ble_handle, AT_CMD_AVAILABLE, OS_NOTIFY_SET_BITS);
         }else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 }
 
@@ -1086,7 +1086,7 @@ static void at_parse_suota_start(at_command_parse *at_cmd)
 
         }else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
         if(command_valid)
@@ -1175,7 +1175,7 @@ static void at_parse_clear_bonds(at_command_parse *at_cmd)
                OS_TASK_NOTIFY(ble_handle, AT_CMD_AVAILABLE, OS_NOTIFY_SET_BITS);
        }else
        {
-               uart_printf("ERROR\r\n");
+               uart_print_line("ERROR");
        }
 
        OS_FREE(bond_cmd);
@@ -1192,7 +1192,7 @@ static void at_parse_get_bonds(at_command_parse *at_cmd)
                 OS_TASK_NOTIFY(ble_handle, AT_CMD_AVAILABLE, OS_NOTIFY_SET_BITS);
         }else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
 }
@@ -1281,7 +1281,7 @@ static void cp_parse_input(uint8_t *cmd, uint16_t cmd_len)
 
               if(cmd_len == 3)
               {
-                      uart_printf("OK\r\n");
+                      uart_print_line("OK");
               }
               else if(uart_rx[3] == '+' && cmd_len > 3)
               {
@@ -1316,7 +1316,7 @@ static void cp_parse_input(uint8_t *cmd, uint16_t cmd_len)
                               }
                               if(i == -1 ){
 
-                                      uart_printf("ERROR\r\n");
+                                      uart_print_line("ERROR");
 
                               }
 
@@ -1325,7 +1325,7 @@ static void cp_parse_input(uint8_t *cmd, uint16_t cmd_len)
                       }
                       else{
 
-                            uart_printf("ERROR\r\n");
+                            uart_print_line("ERROR");
                       }
                       OS_FREE(input);
 
@@ -1333,12 +1333,12 @@ static void cp_parse_input(uint8_t *cmd, uint16_t cmd_len)
               }
               else
               {
-                      uart_printf("ERROR\r\n");
+                      uart_print_line("ERROR");
               }
         }
         else
         {
-                uart_printf("ERROR\r\n");
+                uart_print_line("ERROR");
         }
 
 }
@@ -1372,7 +1372,7 @@ void command_parser_task(void *params)
 
         uart_driver_custom_init(HW_UART2, BAUD_RATE, &config, &uart_drv_cb);
 
-        uart_printf("APP_INITIALIZED\r\n");
+        uart_print_line("APP_INITIALIZED");
 
         for (;;) {
 
