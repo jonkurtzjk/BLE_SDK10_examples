@@ -1,0 +1,2 @@
+ezFlashCLI==0.0.18
+pyserial==3.5
