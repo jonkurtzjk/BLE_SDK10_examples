@@ -3,7 +3,7 @@
   "Author": "Jon Kurtz",
   "Date": "04-30-2021",
   "filter-adv": [
-    {"length":26, "type":255, "data": [76, 0]}
+    {"length":19, "type":9, "data": [68, 105, 97, 108, 111, 103, 32, 80, 88, 32, 82, 101, 112, 111, 114, 116, 101, 114]}
   ],
   "filter-rssi": -50,
   "chars-read": [

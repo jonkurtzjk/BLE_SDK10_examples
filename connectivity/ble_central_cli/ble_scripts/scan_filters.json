@@ -1,9 +1,0 @@
-{
-  "Title": "Suota Scan Filters",
-  "Author": "Jon Kurtz",
-  "Date": "04-30-2021",
-  "filter-adv": [
-    {"length":26, "type": 255, "data": [76, 0]}
-  ],
-  "filter-rssi": -50
-}
