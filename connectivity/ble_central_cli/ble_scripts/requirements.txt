@@ -1,2 +1,2 @@
-ezFlashCLI==0.0.18
+ezFlashCLI==0.0.19
 pyserial==3.5
