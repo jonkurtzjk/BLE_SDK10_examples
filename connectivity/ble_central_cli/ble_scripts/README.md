@@ -27,6 +27,7 @@ Ensure that you have Python 3.8.x (or newer) and 64-bit.
 ### Install Requirements
 If you want to install a virtual environment, do so in the ble_scripts folder, if no virtual environment
 is desired skip to the install requirements:
+
 On Windows:
 
     > py -m .venv
@@ -45,7 +46,7 @@ on MacOS, or Linux
 
 On Windows:
 
-    pip isntall -U -r requirements.txt
+    pip install -U -r requirements.txt
 
 #### To Run:
 
