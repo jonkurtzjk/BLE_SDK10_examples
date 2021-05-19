@@ -25,6 +25,7 @@
 #define __STACK_SIZE 0x0F00
 
 #define CONFIG_USE_BLE_SERVICES
+#define dg_configBLE_CONN_EVENT_LENGTH_MIN      (20)
 #define dg_configUSE_LP_CLK                     ( LP_CLK_32768 )
 #define dg_configEXEC_MODE                      ( MODE_IS_CACHED )
 #define dg_configCODE_LOCATION                  ( NON_VOLATILE_IS_FLASH )

@@ -45,7 +45,7 @@ const gap_conn_params_t default_gap_cp = {
 static const char *AT_GAP_COMMAND_STRING[AT_NUM_GAP_COMMANDS] = {
         "GAPSCAN", "GAPCONNECT", "ECHO", "GAPDISC", "GATTBROWSE","GAPSETCP", "GAPCANCELCONNECT", "GATTWRITE", "GATTREAD", "SETBAUD",
         "GAPSETIOCAP", "GAPPAIR", "RESET", "GATTWRITENORESP", "IMGBLOCKUPDATE", "IMGERASEALL", "PASSKEYENTRY", "YESNOENTRY",
-        "IMGCHECK", "SUOTASTART", "CLEARBOND", "GETBONDS"
+        "IMGCHECK", "SUOTASTART", "CLEARBOND", "GETBONDS", "GETFWVERSION"
 };
 
 
@@ -847,15 +847,26 @@ void at_parse_gap_connect(at_command_parse *at_gap_connect)
                else if(at_gap_connect->num_params > 3 && at_gap_connect->num_params == 6)
                {
                      char *ptr;
+                     float min;
+                     float max;
+                     float slave;
+                     float to;
+                     /*
                      uint16_t min;
                      uint16_t max;
                      uint16_t slave;
                      uint16_t to;
 
+
                      min = (uint16_t)strtol(at_gap_connect->param3, &ptr, 10);
                      max = (uint16_t)strtol(at_gap_connect->param4, &ptr, 10);
                      slave = (uint16_t)strtol(at_gap_connect->param5, &ptr, 10);
                      to = (uint16_t)strtol(at_gap_connect->param6, &ptr, 10);
+                     */
+                     min = strtof(at_gap_connect->param3, &ptr);
+                     max = strtof(at_gap_connect->param4, &ptr);
+                     slave = strtof(at_gap_connect->param5, &ptr);
+                     to = strtof(at_gap_connect->param6, &ptr);
 
                      if(at_gap_connect->param2[0] == '0')
                      {
@@ -936,9 +947,9 @@ static void at_parse_gap_scan(at_command_parse *at_gap_scan)
 
         scan_cmd->scan_type = GAP_SCAN_ACTIVE;
         scan_cmd->scan_filt_wlist = false;
-        scan_cmd->scan_interval = BLE_SCAN_INTERVAL_FROM_MS(200);
-        scan_cmd->scan_window = BLE_SCAN_INTERVAL_FROM_MS(200);
-        scan_cmd->scan_mode = GAP_SCAN_OBSERVER_MODE;
+        scan_cmd->scan_interval = BLE_SCAN_INTERVAL_FROM_MS(BLE_DEFAULT_SCAN_INTERVAL_MS);
+        scan_cmd->scan_window = BLE_SCAN_INTERVAL_FROM_MS(BLE_DEFUALT_SCAN_WINDOW_MS);
+        scan_cmd->scan_mode = GAP_SCAN_GEN_DISC_MODE;
 #ifdef CUSTOM_CENTRAL
         scan_cmd->scan_filt_dupl = false;
 #else
@@ -994,6 +1005,8 @@ static void at_parse_imgblock(at_command_parse *at_cmd)
         write_img_block_cmd_t *cmd = OS_MALLOC(sizeof(write_img_block_cmd_t));
         bool command_valid = false;
 
+        memset(cmd ,0, sizeof(write_img_block_cmd_t));
+
         if(at_cmd->num_params == 6)
         {
                 char *s_start_ptr;
@@ -1005,7 +1018,6 @@ static void at_parse_imgblock(at_command_parse *at_cmd)
                 if(block_size <= MAX_ENCODED_b64)
                 {
                         memcpy(cmd->img_block_b64, at_cmd->param1, (uint32_t)strlen(at_cmd->param1));
-                        //cmd->img_block_b64[block_size] = 0; //add null terminator for decoding later
                         cmd->data_len = (uint16_t)block_size;
 
                         addr = strtol(at_cmd->param3, &s_start_ptr,10);
@@ -1197,6 +1209,21 @@ static void at_parse_get_bonds(at_command_parse *at_cmd)
 
 }
 
+static void at_parse_get_version(at_command_parse *at_cmd)
+{
+        if(at_cmd->num_params == 1)
+        {
+               msg m;
+               msg_queue_init_msg(&at_cmd_queue, &m, (MSG_ID)1, (MSG_TYPE)GETVERSION, 1);
+               msg_queue_put(&at_cmd_queue, &m, OS_QUEUE_FOREVER);
+               OS_TASK_NOTIFY(ble_handle, AT_CMD_AVAILABLE, OS_NOTIFY_SET_BITS);
+        }
+        else
+        {
+               uart_print_line("ERROR");
+        }
+}
+
 static void cp_parse_command(at_command_parse *at_cmd)
 {
 
@@ -1267,6 +1294,8 @@ static void cp_parse_command(at_command_parse *at_cmd)
         case GETBONDS:
                 at_parse_get_bonds(at_cmd);
                 break;
+        case GETVERSION:
+                at_parse_get_version(at_cmd);
         default:
                 break;
         }

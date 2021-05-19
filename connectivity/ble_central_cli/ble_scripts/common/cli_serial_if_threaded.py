@@ -6,6 +6,8 @@ import serial
 import sys
 import threading
 
+import common.ble_msgs
+
 
 class CliSerialThreaded:
 

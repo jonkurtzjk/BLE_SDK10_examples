@@ -134,7 +134,8 @@ void handle_gap_connect(gap_connect_cmd *cmd)
 {
         ble_error_t ret;
 
-        ret = ble_gap_connect( &(cmd->addr), &(cmd->cp));
+        ret = ble_gap_connect_ce( &(cmd->addr), &(cmd->cp), 20, 21);
+        //ret = ble_gap_connect( &(cmd->addr), &(cmd->cp));
         if(ret == BLE_STATUS_OK)
         {
                 uart_print_line("OK");

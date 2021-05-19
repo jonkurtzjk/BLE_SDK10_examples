@@ -12,7 +12,7 @@
 #include "suota.h"
 #include "time.h"
 #include "suota_client.h"
-
+#include "ble_central_config.h"
 
 __RETAINED uint8_t                   image_sector[FLASH_SECTOR_SIZE];
 __RETAINED volatile     uint16_t     sector_pointer;
@@ -226,7 +226,15 @@ void peripheral_handle_suota_check(void)
         uart_print_line("END IMAGE");
 }
 
+void peripheral_display_fw_version(void)
+{
+        char fw_revision[CLI_FW_VERSION_SIZE] = CLI_FW_VERSION;
+        uart_print_line("EVT_CLI_FW_VERSION: %s", fw_revision);
+}
+
 size_t peripheral_get_image_size(void)
 {
         return img_size;
 }
+
+

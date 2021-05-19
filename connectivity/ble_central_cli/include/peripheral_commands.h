@@ -45,4 +45,6 @@ size_t peripheral_get_image_size(void);
 
 bool peripheral_check_image_signature(suota_1_1_image_header_da1469x_t *hdr);
 
+void peripheral_display_fw_version(void);
+
 #endif

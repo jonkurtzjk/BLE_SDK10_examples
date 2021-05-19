@@ -14,13 +14,13 @@ def connect_config(com_port, filters):
 
     # Always reset the device to get the dongle to a known starting point
     ble.reset_device()
-    mac = ble.scan_for_devices(filters, scan_duration=10)
+    mac, add_type = ble.scan_for_devices(filters, scan_duration=10)
     if mac == '':
         print('Device Not Found, Exiting...')
         sys.exit()
 
     ble.stop_scan()
-    ble.connect_to_device(mac)
+    ble.connect_to_device(mac, add_type)
     # always browse database to find services and characteristics
     ble.browse_database()
     

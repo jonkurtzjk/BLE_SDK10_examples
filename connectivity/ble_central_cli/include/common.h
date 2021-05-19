@@ -6,7 +6,7 @@
 
 #define AT_CMD_AVAILABLE        (1<<27)
 #define AT_ECHO                 (1<<26)
-#define AT_NUM_GAP_COMMANDS     (22)
+#define AT_NUM_GAP_COMMANDS     (23)
 extern msg_queue at_cmd_queue;
 
 typedef struct{
@@ -41,7 +41,8 @@ enum {
         IMGCHECK,
         SUOTASTART,
         CLEARBOND,
-        GETBONDS
+        GETBONDS,
+        GETVERSION
 };
 
 

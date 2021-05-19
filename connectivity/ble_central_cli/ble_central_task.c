@@ -31,14 +31,14 @@
 #include "ble_central_config.h"
 
 
-#define L2CAP_CREDITS           5
+#define L2CAP_CREDITS           6
 
 /*
  * This is the maximum number of bytes the client is allowed to send before receiving a notification from
  * the peer to continue. Setting it too high will increase transfer speed but will also require more heap
  * on peer's side while SUOTA is ongoing.
  */
-#define DEFAULT_PATCH_LEN       (1536)
+#define DEFAULT_PATCH_LEN       (6400)
 
 #define MAX_FOUND_DEVICES       25
 
@@ -98,6 +98,12 @@ typedef enum {
         APP_STATE_CONNECTED,
         APP_STATE_UPDATING,
 } app_state_t;
+
+const gap_scan_params_t sp =
+{
+        .interval = BLE_SCAN_INTERVAL_FROM_MS(BLE_DEFAULT_SCAN_INTERVAL_MS),
+        .window = BLE_SCAN_WINDOW_FROM_MS(BLE_DEFUALT_SCAN_WINDOW_MS),
+};
 
 
 __RETAINED static peer_info_t peer_info;
@@ -407,6 +413,7 @@ static void handle_suota_start(suota_start_cmd_t *cmd)
 
         memset(&update_info, 0, sizeof(update_info));
         update_info.use_l2cap = peer_info.psm && !cmd->force_gatt_update;
+        uart_print_line("USE_L2CAP: %d", update_info.use_l2cap);
 
         suota_client_set_mem_dev(peer_info.suota_client, SUOTA_CLIENT_MEM_DEV_SPI_FLASH, 0);
 
@@ -786,20 +793,19 @@ static void handle_evt_gattc_browse_completed(ble_evt_gattc_browse_completed_t *
                 }
         }
 
+        /* Read L2CAP PSM (if supported by SUOTA server) */
+       if (suota_client_get_capabilities(peer_info.suota_client) & SUOTA_CLIENT_CAP_L2CAP_PSM) {
+               peer_info.pending_init |= PENDING_ACTION_READ_L2CAP_PSM;
+               suota_client_read_l2cap_psm(peer_info.suota_client);
+       }
+
+       if (suota_client_get_capabilities(peer_info.suota_client) & SUOTA_CLIENT_CAP_SUOTA_VERSION) {
+               peer_info.pending_init |= PENDING_ACTION_READ_SUOTA_VERSION;
+               suota_client_get_suota_version(peer_info.suota_client);
+       }
         /* Enable state notifications (write CCC) */
         peer_info.pending_init |= PENDING_ACTION_ENABLE_NOTIF;
         suota_client_set_event_state(peer_info.suota_client, SUOTA_CLIENT_EVENT_STATUS_NOTIF, true);
-
-        /* Read L2CAP PSM (if supported by SUOTA server) */
-        if (suota_client_get_capabilities(peer_info.suota_client) & SUOTA_CLIENT_CAP_L2CAP_PSM) {
-                peer_info.pending_init |= PENDING_ACTION_READ_L2CAP_PSM;
-                suota_client_read_l2cap_psm(peer_info.suota_client);
-        }
-
-        if (suota_client_get_capabilities(peer_info.suota_client) & SUOTA_CLIENT_CAP_SUOTA_VERSION) {
-                peer_info.pending_init |= PENDING_ACTION_READ_SUOTA_VERSION;
-                suota_client_get_suota_version(peer_info.suota_client);
-        }
 
         uart_print_line("EVT_READING_SUOTA_DATABASE_CHARS...");
 }
@@ -807,6 +813,7 @@ static void handle_evt_gattc_browse_svc(ble_evt_gattc_browse_svc_t *evt)
 {
         uint8_t prop = 0;
         int i;
+        bool is_suota = false;
 
         uart_print_line("EVT_SERVICE_FOUND: conn_idx=%04x start_h=%04x end_h=%04x", evt->conn_idx,
                                                                         evt->start_h, evt->end_h);
@@ -818,6 +825,7 @@ static void handle_evt_gattc_browse_svc(ble_evt_gattc_browse_svc_t *evt)
         switch (evt->uuid.uuid16) {
                 case UUID_SUOTA:
                 {
+                        is_suota = true;
                         if (!peer_info.suota_client) {
                                 peer_info.suota_client = suota_client_init(&suota_callbacks, evt);
                                 if(peer_info.suota_client)
@@ -868,8 +876,10 @@ static void handle_evt_gattc_browse_svc(ble_evt_gattc_browse_svc_t *evt)
                         if (ble_uuid_equal(&uuid, &item->uuid) && (prop & GATT_PROP_NOTIFY)) {
 
                                 ccc = GATT_CCC_NOTIFICATIONS;
-                                ble_gattc_write(evt->conn_idx, item->handle, 0,
-                                                                sizeof(ccc), (uint8_t *) &ccc);
+                                if(!is_suota){
+                                        ble_gattc_write(evt->conn_idx, item->handle, 0,
+                                                                        sizeof(ccc), (uint8_t *) &ccc);
+                                }
                         }
 
                         if(ble_uuid_equal(&uuid, &item->uuid) && (prop & GATT_PROP_INDICATE))
@@ -1055,6 +1065,8 @@ void ble_central_task(void *params)
         ble_gap_set_io_cap(GAP_IO_CAP_KEYBOARD_DISP);
 
         ble_gap_mtu_size_set(512);
+
+        ble_gap_scan_params_set(&sp);
 
 
         for (;;) {
@@ -1270,6 +1282,9 @@ no_event:
                                 break;
                         case GETBONDS:
                                 handle_get_bonds();
+                                break;
+                        case GETVERSION:
+                                peripheral_display_fw_version();
                                 break;
                         default:
                                 handle_set_baud_rate((set_baud_cmd *)ble_msg->data);

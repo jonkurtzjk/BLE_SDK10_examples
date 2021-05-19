@@ -405,9 +405,19 @@
                             							
                             <option id="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.createlisting.1622083464.123844630" name="Create extended listing" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.createlisting.1622083464"/>
                             							
-                            <tool id="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.1315643608" name="Cross ARM GNU Assembler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.1773026814"/>
+                            <targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="ilg.gnuarmeclipse.managedbuild.cross.targetPlatform" isAbstract="false" osList="all" superClass="ilg.gnuarmeclipse.managedbuild.cross.targetPlatform"/>
                             							
-                            <tool id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.420017331" name="Cross ARM C Compiler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.1225747223"/>
+                            <tool id="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.1315643608" name="Cross ARM GNU Assembler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.1773026814">
+                                								
+                                <inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.input.211268947" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.input"/>
+                                							
+                            </tool>
+                            							
+                            <tool id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.420017331" name="Cross ARM C Compiler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.1225747223">
+                                								
+                                <inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.421115362" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
+                                							
+                            </tool>
                             							
                             <tool id="ilg.gnuarmeclipse.managedbuild.cross.tool.cpp.compiler.284947720" name="Cross ARM C++ Compiler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.cpp.compiler.223232399"/>
                             							
@@ -543,7 +553,7 @@
                             							
                             <targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.GNU_ELF" id="ilg.gnuarmeclipse.managedbuild.cross.targetPlatform.1834153296" isAbstract="false" osList="all" superClass="ilg.gnuarmeclipse.managedbuild.cross.targetPlatform"/>
                             							
-                            <builder arguments="--silent" buildPath="${workspace_loc:/ble_central_cli}/Release_QSPI" command="${cross_make}" id="ilg.gnuarmeclipse.managedbuild.cross.builder.1542934889" keepEnvironmentInBuildfile="false" name="Gnu Make Builder" superClass="ilg.gnuarmeclipse.managedbuild.cross.builder"/>
+                            <builder arguments="--silent" buildPath="${workspace_loc:/ble_central_cli}/Release_QSPI" command="${cross_make}" id="ilg.gnuarmeclipse.managedbuild.cross.builder.1542934889" keepEnvironmentInBuildfile="false" name="Gnu Make Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="ilg.gnuarmeclipse.managedbuild.cross.builder"/>
                             							
                             <tool id="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.46124098" name="Cross ARM GNU Assembler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler">
                                 								
